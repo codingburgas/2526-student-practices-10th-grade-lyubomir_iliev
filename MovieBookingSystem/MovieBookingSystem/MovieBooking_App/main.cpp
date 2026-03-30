@@ -1,7 +1,7 @@
-#include <iostream>
-#include <raylib.h>
-
+#include "App.h"
 
 int main() {
-	std::cout << "nae";
+    App myApp(800, 450, "Movie Booking System - Test");
+    myApp.Run();
+    return 0;
 }
