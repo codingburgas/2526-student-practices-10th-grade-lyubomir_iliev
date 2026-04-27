@@ -1,7 +1,6 @@
 #include "App.h"
-
 int main() {
-    App myApp(800, 450, "Movie Booking System - Test");
-    myApp.Run();
-    return 0;
+	App myApp(800, 600, "Movie Booking System - Cinema Hall");
+	myApp.Run();
+	return 0;
 }
