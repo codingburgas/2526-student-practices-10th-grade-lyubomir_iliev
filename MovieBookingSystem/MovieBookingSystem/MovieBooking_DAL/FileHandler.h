@@ -1,27 +1,51 @@
 #pragma once
-#include <fstream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
 namespace DAL {
+    struct MovieData {
+        int id;
+        std::string title;
+        std::string info;
+        float price;
+    };
     class FileHandler {
     public:
-        static void SaveSeatingPlan(const std::string& filename, const std::vector<int>& data) {
-            std::ofstream file(filename);
+        static std::vector<MovieData> LoadMovies(const std::string& filename) {
+            std::vector<MovieData> movies;
+            std::ifstream file(filename);
+            std::string line;
             if (file.is_open()) {
-                for (int status : data) {
-                    file << status << " ";
+                while (std::getline(file, line)) {
+                    std::stringstream ss(line);
+                    std::string item;
+                    MovieData m;
+                    if (std::getline(ss, item, '|')) m.id = std::stoi(item);
+                    if (std::getline(ss, item, '|')) m.title = item;
+                    if (std::getline(ss, item, '|')) m.info = item;
+                    if (std::getline(ss, item, '|')) m.price = std::stof(item);
+                    movies.push_back(m);
                 }
                 file.close();
             }
+            return movies;
         }
-        static std::vector<int> LoadSeatingPlan(const std::string& filename) {
-            std::vector<int> data;
-            std::ifstream file(filename);
-            int status;
-            while (file >> status) {
-                data.push_back(status);
+        static void SaveMovies(const std::string& filename, const std::vector<MovieData>& movies) {
+            std::ofstream file(filename);
+            for (const auto& m : movies) {
+                file << m.id << "|" << m.title << "|" << m.info << "|" << m.price << "\n";
             }
-            return data;
+            file.close();
+        }
+        static void SaveSeatingPlan(const std::string& filename, const std::vector<int>& seatingData) {
+            std::ofstream file(filename);
+            if (file.is_open()) {
+                for (int seat : seatingData) {
+                    file << seat << " ";
+                }
+                file.close();
+            }
         }
     };
 }
