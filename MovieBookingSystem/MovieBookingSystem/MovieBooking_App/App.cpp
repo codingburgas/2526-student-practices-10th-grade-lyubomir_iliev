@@ -1,6 +1,7 @@
 #include "App.h"
 #include "UIComponents.h"
 #include <string>
+
 App::App(int width, int height, const char* title) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(width, height, title);
@@ -13,17 +14,21 @@ App::App(int width, int height, const char* title) {
         }
     }
 }
+
 App::~App() {
     CloseWindow();
 }
+
 void App::HandleInput() {
     int sw = GetScreenWidth();
     int sh = GetScreenHeight();
     float currentY = 120.0f;
+
     if (bookingMgr.GetCurrentScreen() == BLL::LOGIN) {
         if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 - 140, 300, 70 }, "SPECTATOR", BLUE, 28)) {
             bookingMgr.LoginAsSpectator();
         }
+
         int key = GetCharPressed();
         while (key > 0) {
             if (key >= 32 && key <= 125 && letterCount < 31) {
@@ -37,7 +42,8 @@ void App::HandleInput() {
             letterCount--;
             passwordInput[letterCount] = '\0';
         }
-        if ((UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 100, 300, 60 }, "ADMIN LOGIN", RED, 28)) || IsKeyPressed(KEY_ENTER)) {
+
+        if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 100, 300, 60 }, "ADMIN LOGIN", RED, 28)) {
             if (!bookingMgr.CheckAdminPassword(passwordInput)) showError = true;
             else { showError = false; letterCount = 0; passwordInput[0] = '\0'; }
         }
@@ -53,11 +59,9 @@ void App::HandleInput() {
             if (UI::Button({ card.x + 510, card.y + 25, 120, 50 }, "INFO", ORANGE, 22)) {
                 infoVisibleIdx = (infoVisibleIdx == i) ? -1 : i;
             }
-            if (bookingMgr.IsAdmin()) {
-                if (UI::Button({ card.x + 420, card.y + 25, 70, 50 }, "DEL", RED, 20)) {
-                    bookingMgr.DeleteMovie(i);
-                    return;
-                }
+            if (bookingMgr.IsAdmin() && UI::Button({ card.x + 420, card.y + 25, 70, 50 }, "DEL", RED, 20)) {
+                bookingMgr.DeleteMovie(i);
+                return;
             }
             if (infoVisibleIdx == i) currentY += 170.0f;
             else currentY += 110.0f;
@@ -71,6 +75,7 @@ void App::HandleInput() {
         Vector2 mousePos = GetMousePosition();
         float startX = (sw - (COLS * 65)) / 2.0f;
         float startY = (sh - (ROWS * 65)) / 2.0f;
+
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 seats[r][c].rect = { startX + c * 65, startY + r * 65, 55, 55 };
@@ -79,7 +84,8 @@ void App::HandleInput() {
                 }
             }
         }
-        if (UI::Button({ (float)sw - 220, (float)sh - 80, 200, 60 }, "CONFIRM", GREEN, 25)) {
+
+        if (UI::Button({ (float)sw - 275, (float)sh - 80, 200, 60 }, "CONFIRM", GREEN, 25)) {
             std::vector<int> state;
             for (int r = 0; r < ROWS; r++) {
                 for (int c = 0; c < COLS; c++) {
@@ -96,6 +102,7 @@ void App::HandleInput() {
         }
     }
 }
+
 void App::RenderLogin() {
     int sw = GetScreenWidth();
     int sh = GetScreenHeight();
@@ -108,20 +115,24 @@ void App::RenderLogin() {
     if (letterCount == 0) DrawText("Password...", sw / 2 - 135, sh / 2 + 42, 25, GRAY);
     if (showError) DrawText("Wrong password!", sw / 2 - 80, sh / 2 + 180, 20, RED);
 }
+
 void App::RenderCatalog() {
     int sw = GetScreenWidth();
     DrawText("MOVIE CATALOG", sw / 2 - 150, 40, 40, DARKGRAY);
     auto& list = bookingMgr.GetMovies();
     float currentY = 120.0f;
+
     for (int i = 0; i < (int)list.size(); i++) {
         Rectangle card = { (float)sw / 2 - 400, currentY, 800, 100 };
         DrawRectangleRec(card, LIGHTGRAY);
         DrawRectangleLinesEx(card, 2, GRAY);
         DrawText(list[i].title.c_str(), card.x + 20, card.y + 20, 30, MAROON);
         DrawText(TextFormat("Price: %.2f EUR", list[i].price), card.x + 20, card.y + 60, 20, DARKGREEN);
+
         UI::Button({ card.x + 650, card.y + 25, 130, 50 }, "BUY", GREEN, 22);
         UI::Button({ card.x + 510, card.y + 25, 120, 50 }, "INFO", ORANGE, 22);
         if (bookingMgr.IsAdmin()) UI::Button({ card.x + 420, card.y + 25, 70, 50 }, "DEL", RED, 20);
+
         if (infoVisibleIdx == i) {
             DrawRectangle(card.x, card.y + 100, card.width, 60, ORANGE);
             DrawText(list[i].info.c_str(), card.x + 20, card.y + 120, 20, WHITE);
@@ -132,18 +143,35 @@ void App::RenderCatalog() {
         }
     }
 }
+
 void App::RenderHall() {
     int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+
     DrawRectangle(sw / 2 - 325, 45, 650, 15, DARKGRAY);
     DrawText("SCREEN", sw / 2 - 60, 15, 30, LIGHTGRAY);
+
+    int selectedCount = 0;
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             Color color = seats[r][c].isReserved ? RED : (seats[r][c].isSelected ? LIME : LIGHTGRAY);
+            if (seats[r][c].isSelected) selectedCount++;
             DrawRectangleRec(seats[r][c].rect, color);
             DrawRectangleLinesEx(seats[r][c].rect, 2, BLACK);
         }
     }
+
+    DrawRectangle(20, sh - 150, 220, 130, Fade(LIGHTGRAY, 0.5f));
+    DrawRectangle(30, sh - 135, 20, 20, LIGHTGRAY); DrawText("Available", 60, sh - 135, 20, DARKGRAY);
+    DrawRectangle(30, sh - 105, 20, 20, LIME); DrawText("Selected", 60, sh - 105, 20, DARKGRAY);
+    DrawRectangle(30, sh - 75, 20, 20, RED); DrawText("Reserved", 60, sh - 75, 20, DARKGRAY);
+
+    float totalPrice = selectedCount * bookingMgr.GetSelectedMovie().price;
+    float calcX = (float)sw - 275;
+    DrawText(TextFormat("Selected: %d", selectedCount), calcX, sh - 150, 25, DARKGRAY);
+    DrawText(TextFormat("Total: %.2f EUR", totalPrice), calcX, sh - 120, 30, MAROON);
 }
+
 void App::Run() {
     while (!WindowShouldClose()) {
         HandleInput();
