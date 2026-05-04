@@ -16,6 +16,7 @@ private:
 	char passwordInput[32] = "\0";
 	int letterCount = 0;
 	bool showError = false;
+	int infoVisibleIdx = -1;
 public:
 	App(int width, int height, const char* title);
 	~App();
