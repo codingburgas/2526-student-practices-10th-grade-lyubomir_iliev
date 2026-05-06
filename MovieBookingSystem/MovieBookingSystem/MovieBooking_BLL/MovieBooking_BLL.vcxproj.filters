@@ -3,5 +3,6 @@
   <ItemGroup>
     <ClInclude Include="BookingManager.h" />
     <ClInclude Include="Movie.h" />
+    <ClInclude Include="CinemaModels.h" />
   </ItemGroup>
 </Project>

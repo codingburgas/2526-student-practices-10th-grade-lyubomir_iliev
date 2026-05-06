@@ -22,8 +22,7 @@
     <ClInclude Include="FileHandler.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="movies.txt" />
-    <Text Include="users.txt" />
+    <Text Include="movies_db.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

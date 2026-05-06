@@ -2,38 +2,7 @@
 #include "raylib.h"
 #include <string>
 #include <vector>
-
-namespace BLL {
-    enum ScreenState { LOGIN, CATALOG, BOOKING, ADD_MOVIE };
-
-    struct Movie {
-        std::string title;
-        std::string info;
-        float price;
-    };
-
-    class BookingManager {
-    public:
-        void LoginAsSpectator();
-        void Logout();
-        bool CheckAdminPassword(const char* pass);
-        ScreenState GetCurrentScreen();
-        void SetScreen(ScreenState state);
-        bool IsAdmin();
-        std::vector<Movie>& GetMovies();
-        void AddMovie(std::string t, std::string i, float p);
-        void DeleteMovie(int index);
-        void SelectMovie(int index);
-        Movie& GetSelectedMovie();
-        void FinalizeBooking(std::vector<int> states);
-
-    private:
-        ScreenState screen = LOGIN;
-        bool adminMode = false;
-        std::vector<Movie> movies;
-        int selectedIdx = 0;
-    };
-}
+#include "BookingManager.h"   
 
 struct Seat {
     Rectangle rect;
@@ -56,7 +25,7 @@ private:
     void LoadSeatingPlan(std::string movieTitle, std::string time);
     void ResetSeats();
 
-    BLL::BookingManager bookingMgr;
+    BLL::BookingManager bookingMgr;   
 
     static const int ROWS = 8;
     static const int COLS = 10;

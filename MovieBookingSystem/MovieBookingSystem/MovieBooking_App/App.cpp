@@ -4,50 +4,12 @@
 #include <fstream>
 #include <algorithm>
 
-namespace BLL {
-    void BookingManager::LoginAsSpectator() { screen = CATALOG; adminMode = false; }
-    void BookingManager::Logout() { screen = LOGIN; adminMode = false; }
-    bool BookingManager::IsAdmin() { return adminMode; }
-    ScreenState BookingManager::GetCurrentScreen() { return screen; }
-    void BookingManager::SetScreen(ScreenState s) { screen = s; }
-    std::vector<Movie>& BookingManager::GetMovies() { return movies; }
-    Movie& BookingManager::GetSelectedMovie() { return movies[selectedIdx]; }
-    void BookingManager::SelectMovie(int idx) { selectedIdx = idx; screen = BOOKING; }
-
-    bool BookingManager::CheckAdminPassword(const char* pass) {
-        if (std::string(pass) == "admin123") {
-            adminMode = true;
-            screen = CATALOG;
-            return true;
-        }
-        return false;
-    }
-
-    void BookingManager::AddMovie(std::string t, std::string i, float p) {
-        movies.push_back({ t, i, p });
-    }
-
-    void BookingManager::DeleteMovie(int index) {
-        if (index >= 0 && index < (int)movies.size()) {
-            movies.erase(movies.begin() + index);
-        }
-    }
-
-    void BookingManager::FinalizeBooking(std::vector<int> states) {
-        screen = CATALOG;
-    }
-}
-
 App::App(int width, int height, const char* title) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(width, height, title);
     SetTargetFPS(60);
     infoVisibleIdx = -1;
     ResetSeats();
-
-    bookingMgr.AddMovie("The Batman", "Action | 2h 56m", 12.50f);
-    bookingMgr.AddMovie("Dune: Part Two", "Sci-Fi | 2h 46m", 15.00f);
-    bookingMgr.AddMovie("Oppenheimer", "Drama | 3h 00m", 11.00f);
 }
 
 App::~App() {
@@ -65,9 +27,9 @@ void App::ResetSeats() {
 
 void App::LoadSeatingPlan(std::string movieTitle, std::string time) {
     ResetSeats();
-    std::string cleanTime = time;
-    std::replace(cleanTime.begin(), cleanTime.end(), ':', '-');
-    std::string filename = movieTitle + "_" + cleanTime + "_seats.txt";
+    std::string filename = movieTitle + "_seats.txt";
+    std::replace(filename.begin(), filename.end(), ' ', '_');
+
     std::ifstream file(filename);
     if (file.is_open()) {
         for (int r = 0; r < ROWS; r++) {

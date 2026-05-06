@@ -4,7 +4,6 @@
     <ClInclude Include="FileHandler.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="users.txt" />
-    <Text Include="movies.txt" />
+    <Text Include="movies_db.txt" />
   </ItemGroup>
 </Project>
