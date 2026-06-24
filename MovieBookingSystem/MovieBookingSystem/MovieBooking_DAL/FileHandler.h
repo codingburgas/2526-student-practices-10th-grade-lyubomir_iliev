@@ -5,57 +5,70 @@
 #include <sstream>
 
 namespace DAL {
-    struct MovieData {
-        int id;
-        std::string title;
-        std::string info;
-        float price;
+
+    struct SeatData {
+        int showId;
+        int seatNumber;
+        bool isBooked;
+        std::string seatType;
     };
 
     class FileHandler {
     public:
-        static std::vector<MovieData> LoadMovies(const std::string& filename) {
-            std::vector<MovieData> movies;
+        static std::vector<std::string> ReadFile(const std::string& filename) {
+            std::vector<std::string> lines;
             std::ifstream file(filename);
-            std::string line;
             if (file.is_open()) {
+                std::string line;
                 while (std::getline(file, line)) {
-                    std::stringstream ss(line);
-                    std::string item;
-                    MovieData m;
-                    try {
-                        if (std::getline(ss, item, '|')) m.id = std::stoi(item);
-                        if (std::getline(ss, item, '|')) m.title = item;
-                        if (std::getline(ss, item, '|')) m.info = item;
-                        if (std::getline(ss, item, '|')) m.price = std::stof(item);
-                        movies.push_back(m);
-                    }
-                    catch (...) { continue; }
+                    if (!line.empty()) lines.push_back(line);
                 }
                 file.close();
             }
-            return movies;
+            return lines;
         }
 
-        static void SaveMovies(const std::string& filename, const std::vector<MovieData>& movies) {
+        static void WriteFile(const std::string& filename, const std::vector<std::string>& data) {
             std::ofstream file(filename, std::ios::trunc);
             if (file.is_open()) {
-                for (const auto& m : movies) {
-                    file << m.id << "|" << m.title << "|" << m.info << "|" << m.price << "\n";
+                for (const auto& line : data) {
+                    file << line << "\n";
                 }
                 file.close();
             }
         }
 
-        static void SaveSeatingPlan(const std::string& filename, const std::vector<int>& seatingData) {
+        static void SaveSeats(const std::string& filename, const std::vector<SeatData>& seats) {
             std::ofstream file(filename, std::ios::trunc);
             if (file.is_open()) {
-                for (int i = 0; i < (int)seatingData.size(); i++) {
-                    file << seatingData[i] << " ";
-                    if ((i + 1) % 10 == 0) file << "\n";
+                for (const auto& seat : seats) {
+                    file << seat.showId << "|"
+                        << seat.seatNumber << "|"
+                        << (seat.isBooked ? "1" : "0") << "|"
+                        << seat.seatType << "\n";
                 }
                 file.close();
             }
+        }
+
+        static std::vector<SeatData> LoadSeats(const std::string& filename) {
+            std::vector<SeatData> seats;
+            auto lines = ReadFile(filename);
+            for (const auto& line : lines) {
+                std::stringstream ss(line);
+                std::string item;
+                SeatData seat;
+                try {
+                    if (std::getline(ss, item, '|')) seat.showId = std::stoi(item);
+                    if (std::getline(ss, item, '|')) seat.seatNumber = std::stoi(item);
+                    if (std::getline(ss, item, '|')) seat.isBooked = (item == "1");
+                    if (std::getline(ss, item, '|')) seat.seatType = item;
+                    seats.push_back(seat);
+                }
+                catch (...) { continue; }
+            }
+            return seats;
         }
     };
+
 }

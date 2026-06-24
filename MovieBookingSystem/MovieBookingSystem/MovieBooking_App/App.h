@@ -2,7 +2,7 @@
 #include "raylib.h"
 #include <string>
 #include <vector>
-#include "BookingManager.h"   
+#include "BookingManager.h"
 
 struct Seat {
     Rectangle rect;
@@ -25,7 +25,7 @@ private:
     void LoadSeatingPlan(std::string movieTitle, std::string time);
     void ResetSeats();
 
-    BLL::BookingManager bookingMgr;   
+    BLL::BookingManager bookingMgr;
 
     static const int ROWS = 8;
     static const int COLS = 10;
@@ -38,6 +38,18 @@ private:
     char movieTitleInput[64] = { 0 };
     char movieInfoInput[256] = { 0 };
     char moviePriceInput[32] = { 0 };
-    int activeField = 0;
+    int activeField = -1;
+
     int infoVisibleIdx;
+
+    char searchInput[64] = { 0 };
+    bool searching = false;
+
+    int searchOffset = 0;
+    int passwordOffset = 0;
+    int titleOffset = 0;
+    int infoOffset = 0;
+    int priceOffset = 0;
+
+    double caretTimer = 0.0;
 };

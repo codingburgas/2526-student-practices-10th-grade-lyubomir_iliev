@@ -9,10 +9,11 @@ namespace BLL {
         std::string title;
         std::string info;
         float price;
-
         std::string genre;
         std::string language;
         std::string releaseDate;
+
+        Movie() : id(0), price(0.0f) {}
 
         Movie(int id, std::string t, std::string i, float p,
             std::string g = "", std::string lang = "", std::string r = "")
