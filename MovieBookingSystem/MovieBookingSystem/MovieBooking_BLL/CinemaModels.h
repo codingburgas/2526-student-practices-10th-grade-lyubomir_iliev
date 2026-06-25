@@ -4,11 +4,7 @@
 
 namespace BLL {
 
-    enum SeatType {
-        SEAT_SILVER,
-        SEAT_GOLD,
-        SEAT_PLATINUM
-    };
+    enum SeatType { SEAT_SILVER, SEAT_GOLD, SEAT_PLATINUM };
 
     struct Seat {
         int number;

@@ -3,17 +3,58 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cstdio>
+#include <iomanip>
+#include <sstream>
 
 App::App(int width, int height, const char* title) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(width, height, title);
     SetTargetFPS(60);
+
     infoVisibleIdx = -1;
-    ResetSeats();
+    showError = false;
+    searching = false;
+    activeField = -1;
+    caretTimer = 0.0;
+    searchOffset = 0;
+    passwordOffset = 0;
+    titleOffset = 0;
+    infoOffset = 0;
+    priceOffset = 0;
+    selectedDay = 0;
+    selectedShowId = -1;
+
+    passwordInput[0] = '\0';
+    searchInput[0] = '\0';
+    movieTitleInput[0] = '\0';
+    movieInfoInput[0] = '\0';
+    moviePriceInput[0] = '\0';
+
+    InitSeats();
 }
 
 App::~App() {
     CloseWindow();
+}
+
+void App::InitSeats() {
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+    float seatSize = 45.0f;
+    float startX = (sw - (COLS * seatSize + (COLS - 1) * 8)) / 2;
+    float startY = 100.0f;
+
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            seats[r][c].rect.x = startX + c * (seatSize + 8);
+            seats[r][c].rect.y = startY + r * (seatSize + 8);
+            seats[r][c].rect.width = seatSize;
+            seats[r][c].rect.height = seatSize;
+            seats[r][c].isReserved = false;
+            seats[r][c].isSelected = false;
+        }
+    }
 }
 
 void App::ResetSeats() {
@@ -32,10 +73,12 @@ void App::LoadSeatingPlan(std::string movieTitle, std::string time) {
 
     std::ifstream file(filename);
     if (file.is_open()) {
-        for (int r = 0; r < ROWS; r++) {
-            for (int c = 0; c < COLS; c++) {
-                int val;
-                if (file >> val) seats[r][c].isReserved = (val == 1);
+        int seatNum;
+        while (file >> seatNum) {
+            int r = (seatNum - 1) / COLS;
+            int c = (seatNum - 1) % COLS;
+            if (r < ROWS && c < COLS) {
+                seats[r][c].isReserved = true;
             }
         }
         file.close();
@@ -48,52 +91,9 @@ void App::HandleInput() {
     float dt = GetFrameTime();
     caretTimer += dt;
 
-    static bool bsPrev = false;
-    static float bsHold = 0.0f;
-    static float bsRepeat = 0.0f;
+    BLL::ScreenState state = bookingMgr.GetCurrentScreen();
 
-    auto backspace = [&](char* buf, int fontSize, int maxWidth, int* offsetPtr) {
-        bool down = IsKeyDown(KEY_BACKSPACE);
-        if (!down) {
-            bsPrev = false;
-            bsHold = 0.0f;
-            bsRepeat = 0.0f;
-            return;
-        }
-        bool del = false;
-        if (!bsPrev) {
-            del = true;
-            bsHold = 0.0f;
-            bsRepeat = 0.0f;
-        }
-        else {
-            bsHold += dt;
-            if (bsHold > 0.35f) {
-                bsRepeat += dt;
-                if (bsRepeat > 0.05f) {
-                    del = true;
-                    bsRepeat = 0.0f;
-                }
-            }
-        }
-        bsPrev = true;
-        if (del) {
-            int len = strlen(buf);
-            if (len > 0) {
-                buf[len - 1] = '\0';
-                if (strlen(buf) == 0) *offsetPtr = 0;
-                else {
-                    int tw = MeasureText(buf, fontSize);
-                    int off = tw - maxWidth;
-                    if (off < 0) off = 0;
-                    *offsetPtr = off;
-                }
-            }
-        }
-        };
-
-    if (bookingMgr.GetCurrentScreen() == BLL::LOGIN) {
-
+    if (state == BLL::LOGIN) {
         if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 - 140, 300, 70 }, "SPECTATOR", BLUE, 28)) {
             bookingMgr.LoginAsSpectator();
         }
@@ -102,11 +102,10 @@ void App::HandleInput() {
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 m = GetMousePosition();
-            activeField = CheckCollisionPointRec(m, passRect) ? 100 : -1;
-            if (activeField != 100) passwordOffset = 0;
+            activeField = CheckCollisionPointRec(m, passRect) ? 1 : -1;
         }
 
-        if (activeField == 100) {
+        if (activeField == 1) {
             int key = GetCharPressed();
             while (key > 0) {
                 int len = strlen(passwordInput);
@@ -116,120 +115,131 @@ void App::HandleInput() {
                 }
                 key = GetCharPressed();
             }
-
-            int maxw = 300 - 30;
-            if (strlen(passwordInput) == 0) passwordOffset = 0;
-            else {
-                int tw = MeasureText(passwordInput, 30);
-                passwordOffset = tw - maxw;
-                if (passwordOffset < 0) passwordOffset = 0;
-            }
-
-            backspace(passwordInput, 30, maxw, &passwordOffset);
         }
 
         if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 100, 300, 60 }, "ADMIN LOGIN", RED, 28) || IsKeyPressed(KEY_ENTER)) {
-            if (!bookingMgr.CheckAdminPassword(passwordInput)) showError = true;
+            if (!bookingMgr.CheckAdminPassword(passwordInput)) {
+                showError = true;
+            }
             else {
                 showError = false;
                 passwordInput[0] = '\0';
-                passwordOffset = 0;
+                activeField = -1;
+            }
+        }
+        return;
+    }
+
+    if (state == BLL::CATALOG) {
+        Rectangle searchRect = { (float)sw - 400, 20, 220, 35 };
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 m = GetMousePosition();
+            if (CheckCollisionPointRec(m, searchRect)) {
+                activeField = 2;
+            }
+            else {
                 activeField = -1;
             }
         }
 
-        return;
-    }
-
-    if (bookingMgr.GetCurrentScreen() == BLL::CATALOG) {
-        Rectangle searchRect = { (float)sw - 400, 40, 220, 35 };
-
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            Vector2 m = GetMousePosition();
-            activeField = CheckCollisionPointRec(m, searchRect) ? 200 : -1;
-            if (activeField != 200) searchOffset = 0;
-        }
-
-        if (activeField == 200) {
+        if (activeField == 2) {
             int key = GetCharPressed();
             while (key > 0) {
                 int len = strlen(searchInput);
                 if (key >= 32 && key <= 125 && len < 63) {
                     searchInput[len] = key;
                     searchInput[len + 1] = '\0';
-                    searching = true;
                 }
                 key = GetCharPressed();
             }
 
-            int maxw = 220 - 20;
-            if (strlen(searchInput) == 0) searchOffset = 0;
-            else {
-                int tw = MeasureText(searchInput, 20);
-                searchOffset = tw - maxw;
-                if (searchOffset < 0) searchOffset = 0;
+            if (IsKeyPressed(KEY_BACKSPACE)) {
+                int len = strlen(searchInput);
+                if (len > 0) {
+                    searchInput[len - 1] = '\0';
+                }
             }
-
-            backspace(searchInput, 20, maxw, &searchOffset);
-            if (strlen(searchInput) == 0) searching = false;
         }
-
         return;
     }
 
-    if (bookingMgr.GetCurrentScreen() == BLL::ADD_MOVIE) {
-
+    if (state == BLL::ADD_MOVIE) {
         Rectangle r1 = { (float)sw / 2 - 300, (float)sh / 2 - 65, 600, 45 };
         Rectangle r2 = { (float)sw / 2 - 300, (float)sh / 2 + 20, 600, 45 };
         Rectangle r3 = { (float)sw / 2 - 300, (float)sh / 2 + 105, 200, 45 };
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 m = GetMousePosition();
-            if (CheckCollisionPointRec(m, r1)) activeField = 0;
-            else if (CheckCollisionPointRec(m, r2)) activeField = 1;
-            else if (CheckCollisionPointRec(m, r3)) activeField = 2;
-            else {
-                activeField = -1;
-                titleOffset = infoOffset = priceOffset = 0;
-            }
+            if (CheckCollisionPointRec(m, r1)) activeField = 3;
+            else if (CheckCollisionPointRec(m, r2)) activeField = 4;
+            else if (CheckCollisionPointRec(m, r3)) activeField = 5;
+            else activeField = -1;
         }
 
         char* buf = nullptr;
-        int* off = nullptr;
-        int fontSize = 25;
-        int maxw = 0;
-
-        if (activeField == 0) { buf = movieTitleInput; off = &titleOffset; maxw = 600 - 20; }
-        if (activeField == 1) { buf = movieInfoInput; off = &infoOffset; maxw = 600 - 20; }
-        if (activeField == 2) { buf = moviePriceInput; off = &priceOffset; maxw = 200 - 20; }
+        int maxLen = 0;
+        if (activeField == 3) { buf = movieTitleInput; maxLen = 63; }
+        else if (activeField == 4) { buf = movieInfoInput; maxLen = 255; }
+        else if (activeField == 5) { buf = moviePriceInput; maxLen = 31; }
 
         if (buf) {
             int key = GetCharPressed();
             while (key > 0) {
                 int len = strlen(buf);
-                if (key >= 32 && key <= 125 && len < 250) {
-                    buf[len] = key;
+                if (key >= 32 && key <= 125 && len < maxLen) {
+                    buf[len] = (char)key;
                     buf[len + 1] = '\0';
                 }
                 key = GetCharPressed();
             }
 
-            if (strlen(buf) == 0) *off = 0;
-            else {
-                int tw = MeasureText(buf, fontSize);
-                int o = tw - maxw;
-                if (o < 0) o = 0;
-                *off = o;
+            if (IsKeyPressed(KEY_BACKSPACE)) {
+                int len = strlen(buf);
+                if (len > 0) {
+                    buf[len - 1] = '\0';
+                }
             }
-
-            backspace(buf, fontSize, maxw, off);
         }
-
         return;
     }
+
+    if (state == BLL::BOOKING) {
+        Vector2 mouse = GetMousePosition();
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            for (int r = 0; r < ROWS; r++) {
+                for (int c = 0; c < COLS; c++) {
+                    if (CheckCollisionPointRec(mouse, seats[r][c].rect)) {
+                        if (!seats[r][c].isReserved) {
+                            seats[r][c].isSelected = !seats[r][c].isSelected;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (UI::Button({ (float)sw / 2 - 100, (float)sh - 60, 200, 40 }, "CONFIRM", GREEN, 20)) {
+            std::vector<int> selectedSeats;
+            for (int r = 0; r < ROWS; r++) {
+                for (int c = 0; c < COLS; c++) {
+                    if (seats[r][c].isSelected) {
+                        selectedSeats.push_back(r * COLS + c + 1);
+                    }
+                }
+            }
+            if (!selectedSeats.empty()) {
+                bookingMgr.BookSeats(selectedSeats);
+                ResetSeats();
+            }
+        }
+
+        if (UI::Button({ (float)sw / 2 - 100, (float)sh - 110, 200, 40 }, "BACK", GRAY, 20)) {
+            ResetSeats();
+            bookingMgr.SetScreen(BLL::CATALOG);
+        }
+    }
 }
-
-
 
 void App::RenderLogin() {
     int sw = GetScreenWidth();
@@ -243,98 +253,124 @@ void App::RenderLogin() {
     DrawRectangleLinesEx(passRect, 3, DARKGRAY);
 
     std::string dots(strlen(passwordInput), '*');
-    int tw = MeasureText(dots.c_str(), 30);
+    DrawText(dots.c_str(), passRect.x + 10, passRect.y + 10, 30, DARKGRAY);
 
-    DrawText(dots.c_str(), passRect.x + 10 - passwordOffset, passRect.y + 10, 30, DARKGRAY);
-
-    if (strlen(passwordInput) == 0)
-        DrawText("Password...", passRect.x + 10 - passwordOffset, passRect.y + 12, 25, GRAY);
-
-    if (activeField == 100 && ((int)(caretTimer * 2) % 2 == 0)) {
-        int cx = passRect.x + 10 + tw - passwordOffset;
-        DrawRectangle(cx, passRect.y + 10, 3, 30, DARKGRAY);
+    if (strlen(passwordInput) == 0) {
+        DrawText("Password...", passRect.x + 10, passRect.y + 12, 25, GRAY);
     }
 
-    if (showError)
+    if (showError) {
         DrawText("Wrong password!", sw / 2 - 80, sh / 2 + 180, 20, RED);
+    }
 }
-
 
 void App::RenderCatalog() {
     int sw = GetScreenWidth();
     int sh = GetScreenHeight();
 
-    const char* days[] = { "TODAY", "TUE", "WED", "THU", "FRI", "SAT", "SUN" };
+    DrawText("SHOWTIMES", 40, 20, 30, DARKGRAY);
+
+    const char* days[] = { "TODAY", "TOMORROW", "SUN", "MON", "TUE", "WED", "THU" };
     float dayX = 40;
+    float dayY = 60;
+
     for (int d = 0; d < 7; d++) {
-        DrawText(days[d], dayX, 40, 22, (d == 0) ? ORANGE : DARKGRAY);
-        if (d == 0) DrawRectangle(dayX, 65, 60, 3, ORANGE);
-        dayX += 80;
+        Rectangle dayRect = { dayX, dayY, 75, 35 };
+        Color dayColor = (d == selectedDay) ? ORANGE : LIGHTGRAY;
+
+        if (UI::Button(dayRect, days[d], dayColor, 14)) {
+            selectedDay = d;
+            bookingMgr.selectedDayIndex = d;
+        }
+        dayX += 85;
     }
 
-    DrawLine(40, 80, sw - 40, 80, LIGHTGRAY);
+    const char* dateStrings[] = {
+        "FRIDAY 26/06/2026",     
+        "SATURDAY 27/06/2026",   
+        "SUNDAY 28/06/2026",     
+        "MONDAY 29/06/2026",     
+        "TUESDAY 30/06/2026",    
+        "WEDNESDAY 01/07/2026",  
+        "THURSDAY 02/07/2026"   
+    };
+    DrawText(dateStrings[selectedDay], 40, dayY + 50, 16, GRAY);
+    DrawLine(40, dayY + 75, sw - 40, dayY + 75, LIGHTGRAY);
 
-    Rectangle searchRect = { (float)sw - 400, 40, 220, 35 };
+    Rectangle searchRect = { (float)sw - 400, 20, 220, 35 };
     DrawRectangleRec(searchRect, LIGHTGRAY);
     DrawRectangleLinesEx(searchRect, 2, DARKGRAY);
+    DrawText(searchInput[0] ? searchInput : "Search...", searchRect.x + 10, searchRect.y + 8, 20, searchInput[0] ? BLACK : GRAY);
 
-    const char* txt = searchInput[0] ? searchInput : "Search...";
-    Color col = searchInput[0] ? BLACK : GRAY;
-
-    int tw = MeasureText(searchInput, 20);
-    int maxw = 220 - 20;
-    searchOffset = (strlen(searchInput) == 0) ? 0 : tw - maxw;
-    if (searchOffset < 0) searchOffset = 0;
-
-    DrawText(txt, searchRect.x + 10 - searchOffset, searchRect.y + 8, 20, col);
-
-    if (activeField == 200 && ((int)(caretTimer * 2) % 2 == 0)) {
-        int cx = searchRect.x + 10 + tw - searchOffset;
-        DrawRectangle(cx, searchRect.y + 8, 2, 20, BLACK);
+    std::vector<BLL::Movie> searchResults;
+    if (searchInput[0] != '\0') {
+        searchResults = bookingMgr.SearchMovies(searchInput);
+    }
+    else {
+        searchResults = bookingMgr.GetMovies();
     }
 
-    if (UI::Button({ (float)sw - 150, 40, 120, 35 }, "LOGOUT", GRAY, 18)) {
+    std::vector<BLL::ShowTime> shows = bookingMgr.GetShowtimesForDay(selectedDay);
+    float currentY = dayY + 100;
+
+    if (shows.empty()) {
+        DrawText("No showtimes for this day", sw / 2 - 100, sh / 2, 20, GRAY);
+    }
+
+    for (int i = 0; i < (int)searchResults.size(); i++) {
+        BLL::Movie& movie = searchResults[i];
+
+        bool hasShows = false;
+        for (int j = 0; j < (int)shows.size(); j++) {
+            if (shows[j].movieId == movie.id) { hasShows = true; break; }
+        }
+        if (!hasShows) continue;
+
+        Rectangle card = { 40, currentY, (float)sw - 80, 130 };
+        DrawRectangleRec(card, RAYWHITE);
+        DrawRectangleLinesEx(card, 1, LIGHTGRAY);
+
+        DrawRectangle(card.x + 10, card.y + 10, 80, 100, DARKGRAY);
+        DrawText("POSTER", card.x + 20, card.y + 55, 15, LIGHTGRAY);
+
+        DrawText(movie.title.c_str(), card.x + 110, card.y + 10, 22, BLACK);
+        DrawText(movie.info.c_str(), card.x + 110, card.y + 40, 13, GRAY);
+
+        float timeX = card.x + 110;
+        float timeY = card.y + 70;
+
+        for (int j = 0; j < (int)shows.size(); j++) {
+            BLL::ShowTime& s = shows[j];
+            if (s.movieId != movie.id) continue;
+
+            std::string label = s.is3D ? "3D" : "2D";
+            DrawText(label.c_str(), timeX, timeY - 12, 10, s.is3D ? ORANGE : BLUE);
+
+            Rectangle timeRect = { timeX, timeY, 65, 40 };
+            if (UI::Button(timeRect, s.time.c_str(), ORANGE, 16)) {
+                selectedShowId = s.id;
+                LoadSeatingPlan(movie.title, s.time);
+                bookingMgr.SelectMovie(movie.id - 1);
+            }
+
+            timeX += 80;
+        }
+
+        currentY += 150;
+    }
+
+    if (UI::Button({ (float)sw - 150, 20, 120, 35 }, "LOGOUT", GRAY, 16)) {
         bookingMgr.Logout();
         activeField = -1;
         searchInput[0] = '\0';
-        searchOffset = 0;
-        searching = false;
-        return;
-    }
-
-
-    auto& list = bookingMgr.GetMovies();
-    float currentY = 110.0f;
-    const char* hours[] = { "18:00", "20:30", "22:15" };
-
-    for (int i = 0; i < (int)list.size(); i++) {
-        Rectangle card = { 40, currentY, (float)sw - 80, 160 };
-
-        DrawLine(card.x, card.y + card.height + 15, card.x + card.width, card.y + card.height + 15, LIGHTGRAY);
-        DrawRectangle(card.x, card.y, 100, 150, DARKGRAY);
-        DrawText("POSTER", card.x + 15, card.y + 65, 15, LIGHTGRAY);
-
-        DrawText(list[i].title.c_str(), card.x + 120, card.y, 28, BLACK);
-        DrawText(list[i].info.c_str(), card.x + 120, card.y + 35, 18, GRAY);
-        DrawText("2D | English", card.x + 120, card.y + 65, 16, DARKGRAY);
-
-        for (int h = 0; h < 3; h++) {
-            DrawRectangle(card.x + 120 + (h * 90), card.y + 100, 80, 45, ORANGE);
-            DrawText(hours[h], card.x + 135 + (h * 90), card.y + 112, 20, WHITE);
-        }
-
-        if (bookingMgr.IsAdmin()) {
-            UI::Button({ card.x + card.width - 80, card.y, 80, 35 }, "DEL", RED, 18);
-        }
-
-        currentY += 190.0f;
     }
 
     if (bookingMgr.IsAdmin()) {
-        UI::Button({ (float)sw - 220, (float)sh - 60, 200, 40 }, "NEW MOVIE", ORANGE, 20);
+        if (UI::Button({ (float)sw - 220, (float)sh - 60, 200, 40 }, "NEW MOVIE", ORANGE, 18)) {
+            bookingMgr.SetScreen(BLL::ADD_MOVIE);
+        }
     }
 }
-
 
 void App::RenderAddMovie() {
     int sw = GetScreenWidth();
@@ -349,46 +385,34 @@ void App::RenderAddMovie() {
 
     DrawText("TITLE", r1.x, r1.y - 25, 18, DARKGRAY);
     DrawRectangleRec(r1, LIGHTGRAY);
-    DrawText(movieTitleInput, r1.x + 10 - titleOffset, r1.y + 10, 25, BLACK);
-
-    if (strlen(movieTitleInput) == 0)
-        DrawText("Title...", r1.x + 10 - titleOffset, r1.y + 10, 25, GRAY);
-
-    if (activeField == 0 && ((int)(caretTimer * 2) % 2 == 0)) {
-        int tw = MeasureText(movieTitleInput, 25);
-        int cx = r1.x + 10 + tw - titleOffset;
-        DrawRectangle(cx, r1.y + 10, 2, 25, BLACK);
-    }
+    DrawText(movieTitleInput[0] ? movieTitleInput : "Title...", r1.x + 10, r1.y + 10, 25, movieTitleInput[0] ? BLACK : GRAY);
 
     DrawText("DETAILS", r2.x, r2.y - 25, 18, DARKGRAY);
     DrawRectangleRec(r2, LIGHTGRAY);
-    DrawText(movieInfoInput, r2.x + 10 - infoOffset, r2.y + 10, 25, BLACK);
-
-    if (strlen(movieInfoInput) == 0)
-        DrawText("Details...", r2.x + 10 - infoOffset, r2.y + 10, 25, GRAY);
-
-    if (activeField == 1 && ((int)(caretTimer * 2) % 2 == 0)) {
-        int tw = MeasureText(movieInfoInput, 25);
-        int cx = r2.x + 10 + tw - infoOffset;
-        DrawRectangle(cx, r2.y + 10, 2, 25, BLACK);
-    }
+    DrawText(movieInfoInput[0] ? movieInfoInput : "Details...", r2.x + 10, r2.y + 10, 25, movieInfoInput[0] ? BLACK : GRAY);
 
     DrawText("PRICE (EUR)", r3.x, r3.y - 25, 18, DARKGRAY);
     DrawRectangleRec(r3, LIGHTGRAY);
-    DrawText(moviePriceInput, r3.x + 10 - priceOffset, r3.y + 10, 25, BLACK);
+    DrawText(moviePriceInput[0] ? moviePriceInput : "0.00", r3.x + 10, r3.y + 10, 25, moviePriceInput[0] ? BLACK : GRAY);
 
-    if (strlen(moviePriceInput) == 0)
-        DrawText("0.00", r3.x + 10 - priceOffset, r3.y + 10, 25, GRAY);
-
-    if (activeField == 2 && ((int)(caretTimer * 2) % 2 == 0)) {
-        int tw = MeasureText(moviePriceInput, 25);
-        int cx = r3.x + 10 + tw - priceOffset;
-        DrawRectangle(cx, r3.y + 10, 2, 25, BLACK);
+    if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 200, 300, 60 }, "CONFIRM", GREEN, 25)) {
+        if (strlen(movieTitleInput) > 0 && strlen(movieInfoInput) > 0 && strlen(moviePriceInput) > 0) {
+            float price = std::stof(moviePriceInput);
+            bookingMgr.AddMovie(movieTitleInput, movieInfoInput, price);
+            movieTitleInput[0] = '\0';
+            movieInfoInput[0] = '\0';
+            moviePriceInput[0] = '\0';
+            bookingMgr.SetScreen(BLL::CATALOG);
+        }
     }
 
-    UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 200, 300, 60 }, "CONFIRM", GREEN, 25);
+    if (UI::Button({ (float)sw / 2 - 150, (float)sh / 2 + 270, 300, 40 }, "CANCEL", GRAY, 20)) {
+        movieTitleInput[0] = '\0';
+        movieInfoInput[0] = '\0';
+        moviePriceInput[0] = '\0';
+        bookingMgr.SetScreen(BLL::CATALOG);
+    }
 }
-
 
 void App::RenderHall() {
     int sw = GetScreenWidth();
@@ -405,10 +429,16 @@ void App::RenderHall() {
             if (seats[r][c].isSelected) selectedCount++;
             DrawRectangleRec(seats[r][c].rect, color);
             DrawRectangleLinesEx(seats[r][c].rect, 2, BLACK);
+
+            int seatNum = r * COLS + c + 1;
+            DrawText(std::to_string(seatNum).c_str(),
+                seats[r][c].rect.x + 15,
+                seats[r][c].rect.y + 15,
+                12, DARKGRAY);
         }
     }
 
-    DrawRectangle(20, sh - 150, 220, 130, Fade(LIGHTGRAY, 0.5f));
+    DrawRectangle(20, sh - 150, 220, 130, ColorAlpha(LIGHTGRAY, 0.5f));
     DrawRectangle(30, sh - 135, 20, 20, LIGHTGRAY);
     DrawText("Available", 60, sh - 135, 20, DARKGRAY);
     DrawRectangle(30, sh - 105, 20, 20, LIME);
@@ -417,8 +447,13 @@ void App::RenderHall() {
     DrawText("Reserved", 60, sh - 75, 20, DARKGRAY);
 
     float totalPrice = selectedCount * bookingMgr.GetSelectedMovie().price;
-    DrawText(TextFormat("Selected: %d", selectedCount), sw - 275, sh - 150, 25, DARKGRAY);
-    DrawText(TextFormat("Total: %.2f EUR", totalPrice), sw - 275, sh - 120, 30, MAROON);
+
+    std::string text = "Selected: " + std::to_string(selectedCount);
+    DrawText(text.c_str(), sw - 275, sh - 150, 25, DARKGRAY);
+
+    char priceBuffer[50];
+    sprintf_s(priceBuffer, "Total: %.2f EUR", totalPrice);
+    DrawText(priceBuffer, sw - 275, sh - 120, 30, MAROON);
 }
 
 void App::Run() {

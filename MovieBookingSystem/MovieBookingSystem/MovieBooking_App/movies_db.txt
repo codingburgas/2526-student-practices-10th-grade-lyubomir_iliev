@@ -1,2 +1,3 @@
-The Batman|Action | 2h 56m|12.5
-Dune: Part Two|Sci-Fi | 2h 46m|15
+The Batman|Action |2
+Dune: Part Two|Sci-Fi |2
+23|23|32

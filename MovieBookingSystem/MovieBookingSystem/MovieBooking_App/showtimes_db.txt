@@ -1,0 +1,27 @@
+1|1|17:40|TODAY|Hall 1|English (BUL subs)|1
+2|1|20:00|TODAY|Hall 1|English (BUL subs)|1
+3|1|22:20|TODAY|Hall 2|English (BUL subs)|1
+4|2|17:20|TODAY|Hall 2|English (BUL subs)|0
+5|2|19:40|TODAY|Hall 2|English (BUL subs)|0
+6|2|22:00|TODAY|Hall 1|English (BUL subs)|0
+7|3|17:15|TODAY|Hall 3|Bulgarian Dub|0
+8|3|19:30|TODAY|Hall 3|Bulgarian Dub|0
+9|3|18:30|TODAY|Hall 3|Bulgarian Dub|1
+10|1|14:00|TOMORROW|Hall 1|English (BUL subs)|1
+11|1|17:00|TOMORROW|Hall 1|English (BUL subs)|1
+12|1|20:00|TOMORROW|Hall 1|English (BUL subs)|1
+13|2|15:00|TOMORROW|Hall 2|English (BUL subs)|0
+14|2|18:00|TOMORROW|Hall 2|English (BUL subs)|0
+15|2|21:00|TOMORROW|Hall 2|English (BUL subs)|0
+16|3|14:30|TOMORROW|Hall 3|Bulgarian Dub|0
+17|3|17:00|TOMORROW|Hall 3|Bulgarian Dub|0
+18|3|19:30|TOMORROW|Hall 3|Bulgarian Dub|0
+19|1|15:30|SUN|Hall 1|English (BUL subs)|1
+20|1|18:30|SUN|Hall 1|English (BUL subs)|1
+21|1|21:00|SUN|Hall 2|English (BUL subs)|1
+22|2|16:00|SUN|Hall 2|English (BUL subs)|0
+23|2|18:30|SUN|Hall 2|English (BUL subs)|0
+24|2|20:45|SUN|Hall 1|English (BUL subs)|0
+25|3|14:00|SUN|Hall 3|Bulgarian Dub|0
+26|3|16:30|SUN|Hall 3|Bulgarian Dub|0
+27|3|19:00|SUN|Hall 3|Bulgarian Dub|0
