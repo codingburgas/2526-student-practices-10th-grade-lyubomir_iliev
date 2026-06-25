@@ -55,9 +55,9 @@ namespace BLL {
         }
 
         void AddDefaultMovies() {
-            movies.push_back(Movie(1, "SUPERGIRL", "Action, Adventure, Fantasy | 108 min.", 12.50, "Action", "English", "2022"));
-            movies.push_back(Movie(2, "OBSESSION", "Horror, Romance | 108 min.", 15.00, "Horror", "English", "2024"));
-            movies.push_back(Movie(3, "TOY STORY 5", "Adventure, Animation, Comedy, Family | 102 min.", 10.00, "Animation", "Bulgarian", "2023"));
+            movies.push_back(Movie(1, "SUPERGIRL", "Action, Adventure, Fantasy | 108 min.", 12.50, "Action", "English", "2022", "SUPERGIRL.png"));
+            movies.push_back(Movie(2, "OBSESSION", "Horror, Romance | 108 min.", 15.00, "Horror", "English", "2024", "OBSESSION.png"));
+            movies.push_back(Movie(3, "TOY STORY 5", "Adventure, Animation, Comedy, Family | 102 min.", 10.00, "Animation", "Bulgarian", "2023", "TOY_STORY_5.png"));
         }
 
         void AddDefaultShowtimes() {
@@ -101,11 +101,15 @@ namespace BLL {
                 size_t p1 = line.find('|');
                 size_t p2 = line.find('|', p1 + 1);
                 size_t p3 = line.find('|', p2 + 1);
+                size_t p4 = line.find('|', p3 + 1);
+                size_t p5 = line.find('|', p4 + 1);
                 if (p1 == std::string::npos || p2 == std::string::npos) continue;
                 std::string t = line.substr(0, p1);
                 std::string i = line.substr(p1 + 1, p2 - p1 - 1);
                 float p = std::stof(line.substr(p2 + 1, p3 - p2 - 1));
-                movies.push_back(Movie((int)movies.size() + 1, t, i, p));
+                std::string g = (p4 != std::string::npos) ? line.substr(p3 + 1, p4 - p3 - 1) : "";
+                std::string img = (p5 != std::string::npos) ? line.substr(p4 + 1, p5 - p4 - 1) : "";
+                movies.push_back(Movie((int)movies.size() + 1, t, i, p, g, "", "", img));
             }
             file.close();
         }
@@ -114,7 +118,7 @@ namespace BLL {
             std::ofstream file(db_name, std::ios::trunc);
             if (file.is_open()) {
                 for (const auto& m : movies) {
-                    file << m.title << "|" << m.info << "|" << m.price << "\n";
+                    file << m.title << "|" << m.info << "|" << m.price << "|" << m.genre << "|" << m.imagePath << "\n";
                 }
                 file.close();
             }
@@ -182,8 +186,9 @@ namespace BLL {
         }
         void SelectMovie(int idx) { selectedMovieIdx = idx; screen = BOOKING; }
 
-        void AddMovie(std::string t, std::string i, float p) {
-            movies.push_back(Movie((int)movies.size() + 1, t, i, p));
+        void AddMovie(std::string t, std::string i, float p, std::string g = "", std::string lang = "", std::string r = "", std::string img = "") {
+            int newId = movies.empty() ? 1 : movies.back().id + 1;
+            movies.push_back(Movie(newId, t, i, p, g, lang, r, img));
             SaveMoviesToFile();
         }
 
@@ -191,6 +196,16 @@ namespace BLL {
             if (index >= 0 && index < (int)movies.size()) {
                 movies.erase(movies.begin() + index);
                 SaveMoviesToFile();
+            }
+        }
+
+        void DeleteMovieById(int movieId) {
+            for (int i = 0; i < (int)movies.size(); i++) {
+                if (movies[i].id == movieId) {
+                    movies.erase(movies.begin() + i);
+                    SaveMoviesToFile();
+                    return;
+                }
             }
         }
 

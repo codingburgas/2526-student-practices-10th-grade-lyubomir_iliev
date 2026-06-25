@@ -43,6 +43,9 @@ private:
     int infoVisibleIdx;
     int selectedDay;
     int selectedShowId;
+    int selectedGenre;
+    float seatSize;
+    bool seatsInitialized;
 
     int searchOffset;
     int passwordOffset;

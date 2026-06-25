@@ -12,13 +12,14 @@ namespace BLL {
         std::string genre;
         std::string language;
         std::string releaseDate;
+        std::string imagePath;
 
         Movie() : id(0), price(0.0f) {}
 
         Movie(int id, std::string t, std::string i, float p,
-            std::string g = "", std::string lang = "", std::string r = "")
+            std::string g = "", std::string lang = "", std::string r = "", std::string img = "")
             : id(id), title(t), info(i), price(p),
-            genre(g), language(lang), releaseDate(r) {}
+            genre(g), language(lang), releaseDate(r), imagePath(img) {}
     };
 
 }
